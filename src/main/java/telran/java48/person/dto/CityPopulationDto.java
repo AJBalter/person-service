@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CityPopulationDto {
 	String cityString;
-	Integer population;
+	Long population;
 
 }
  
