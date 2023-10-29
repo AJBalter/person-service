@@ -1,32 +1,34 @@
 package telran.java48.person.dao;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
 
 import telran.java48.person.dto.CityPopulationDto;
+import telran.java48.person.model.Child;
+import telran.java48.person.model.Employee;
 import telran.java48.person.model.Person;
 
 public interface PersonRepository extends CrudRepository<Person, Integer> {
-	Stream<Person> findByAddressCityIgnoreCase(String city);
-
+	
+//	@Query("select p from Person p where p.name=?1")
 	Stream<Person> findByNameIgnoreCase(String name);
 
-	Stream<Person> findByBirthDateBetween(LocalDate startDate, LocalDate endDate);
+//	@Query("select p from Person p where p.address.city=:cityName")
+	Stream<Person> findByAddressCityIgnoreCase(@Param("cityName") String city);
 
+	Stream<Person> findByBirthDateBetween(LocalDate from, LocalDate to);
+	
 	@Query("select new telran.java48.person.dto.CityPopulationDto(p.address.city, count(p)) from Person p group by p.address.city order by count(p) asc")
-	Stream<CityPopulationDto> getCitiesPopulation();
+	List<CityPopulationDto> getCitiesPopulation();
+	
+//	@Query("select e from Employee e where e.salary between ?1 and ?2")
+	Stream<Employee> findBySalaryBetween(int min, int max);
 
-	@Query("select new telran.java48.person.model.Child(p.id, p.name, p.birthDate, p.address, c.kindergarten) from Person p join Child c ON p.id = c.id")
-	Stream<Person> findAllChildren();
-
-
-	@Query("select new telran.java48.person.model.Employee(p.id, p.name, p.birthDate, p.address, e.company, e.salary) " +
-		   "from Person p join Employee e on p.id = e.id " +
-		   "where p.id IN (select e.id from Employee e) " +
-		   "and e.salary between :minSalary and :maxSalary " + 
-		   "order by e.salary asc")
-	Stream<Person> findBySalaryBetween(Integer minSalary, Integer maxSalary);
+//	@Query("select c from Child c")
+	Stream<Child> findChildrenBy();
 }

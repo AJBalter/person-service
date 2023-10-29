@@ -16,6 +16,7 @@ import telran.java48.person.dto.CityPopulationDto;
 import telran.java48.person.dto.EmployeeDto;
 import telran.java48.person.dto.PersonDto;
 import telran.java48.person.dto.exceptions.PersonNotFoundException;
+import telran.java48.person.dto.exceptions.UnknownPersonTypeException;
 import telran.java48.person.model.Address;
 import telran.java48.person.model.Child;
 import telran.java48.person.model.Employee;
@@ -24,6 +25,9 @@ import telran.java48.person.model.Person;
 @Service
 @RequiredArgsConstructor
 public class PersonServiceImpl implements PersonService, CommandLineRunner {
+	private static final String MODEL_PACKAGE = "telran.java48.person.model.";
+	private static final String DTO_SUFFIX = "Dto";
+	private static final String DTO_PACKAGE = "telran.java48.person.dto.";
 
 	final PersonRepository personRepository;
 	final ModelMapper modelMapper;
@@ -34,41 +38,14 @@ public class PersonServiceImpl implements PersonService, CommandLineRunner {
 		if (personRepository.existsById(personDto.getId())) {
 			return false;
 		}
-		Person person = modelMapper.map(personDto, checkModelClass(personDto));
-		if (person != null) {
-			personRepository.save(person);
-			return true;
-		}
-
-		return false;
-	}
-
-	private Class<? extends Person> checkModelClass(PersonDto personDto) {
-		if (personDto instanceof ChildDto) {
-			return Child.class;
-		} else if (personDto instanceof EmployeeDto) {
-			return Employee.class;
-		} else if (personDto instanceof PersonDto) {
-			return Person.class;
-		}
-		return null;
-	}
-
-	private Class<? extends PersonDto> checkDtoClass(Person person) {
-		if (person instanceof Employee) {
-			return EmployeeDto.class;
-		} else if (person instanceof Child) {
-			return ChildDto.class;
-		} else if (person instanceof Person) {
-			return PersonDto.class;
-		}
-		throw new IllegalArgumentException("Unknown Person type");
+		personRepository.save(modelMapper.map(personDto, getModelClass(personDto)));
+		return true;
 	}
 
 	@Override
 	public PersonDto findPersonById(Integer id) {
 		Person person = personRepository.findById(id).orElseThrow(PersonNotFoundException::new);
-		return modelMapper.map(person, checkDtoClass(person));
+		return modelMapper.map(person, getDtoClass(person));
 	}
 
 	@Override
@@ -76,7 +53,7 @@ public class PersonServiceImpl implements PersonService, CommandLineRunner {
 	public PersonDto removePerson(Integer id) {
 		Person person = personRepository.findById(id).orElseThrow(PersonNotFoundException::new);
 		personRepository.delete(person);
-		return modelMapper.map(person, checkDtoClass(person));
+		return modelMapper.map(person, getDtoClass(person));
 	}
 
 	@Override
@@ -84,7 +61,7 @@ public class PersonServiceImpl implements PersonService, CommandLineRunner {
 	public PersonDto updatePersonName(Integer id, String name) {
 		Person person = personRepository.findById(id).orElseThrow(PersonNotFoundException::new);
 		person.setName(name);
-		return modelMapper.map(person, checkDtoClass(person));
+		return modelMapper.map(person, getDtoClass(person));
 	}
 
 	@Override
@@ -92,20 +69,20 @@ public class PersonServiceImpl implements PersonService, CommandLineRunner {
 	public PersonDto updatePersonAddress(Integer id, AddressDto addressDto) {
 		Person person = personRepository.findById(id).orElseThrow(PersonNotFoundException::new);
 		person.setAddress(modelMapper.map(addressDto, Address.class));
-		return modelMapper.map(person, checkDtoClass(person));
+		return modelMapper.map(person, getDtoClass(person));
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public Iterable<PersonDto> findPersonsByCity(String city) {
-		return personRepository.findByAddressCityIgnoreCase(city).map(p -> modelMapper.map(p, checkDtoClass(p)))
+		return personRepository.findByAddressCityIgnoreCase(city).map(p -> modelMapper.map(p, getDtoClass(p)))
 				.collect(Collectors.toList());
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public Iterable<PersonDto> findPersonsByName(String name) {
-		return personRepository.findByNameIgnoreCase(name).map(p -> modelMapper.map(p, checkDtoClass(p)))
+		return personRepository.findByNameIgnoreCase(name).map(p -> modelMapper.map(p, getDtoClass(p)))
 				.collect(Collectors.toList());
 	}
 
@@ -114,30 +91,14 @@ public class PersonServiceImpl implements PersonService, CommandLineRunner {
 	public Iterable<PersonDto> findPersonsBetweenAge(Integer minAge, Integer maxAge) {
 		LocalDate from = LocalDate.now().minusYears(maxAge);
 		LocalDate to = LocalDate.now().minusYears(minAge);
-		return personRepository.findByBirthDateBetween(from, to).map(p -> modelMapper.map(p, checkDtoClass(p)))
+		return personRepository.findByBirthDateBetween(from, to).map(p -> modelMapper.map(p, getDtoClass(p)))
 				.collect(Collectors.toList());
 	}
 
 	@Override
-	@Transactional(readOnly = true)
 	public Iterable<CityPopulationDto> getCitiesPopulation() {
-		return personRepository.getCitiesPopulation().collect(Collectors.toList());
+		return personRepository.getCitiesPopulation();
 	}
-	
-	@Override
-	@Transactional(readOnly = true)
-	public Iterable<PersonDto> findAllChildren() {
-		return personRepository.findAllChildren().map(p -> modelMapper.map(p, checkDtoClass(p)))
-				.collect(Collectors.toList());
-	}
-	
-	@Override
-	@Transactional(readOnly = true)
-	public Iterable<PersonDto> findEmployeesBySalary(Integer minSalary, Integer maxSalary) {
-		return personRepository.findBySalaryBetween(minSalary, maxSalary).map(p -> modelMapper.map(p, checkDtoClass(p)))
-				.collect(Collectors.toList());
-	}
-
 
 	@Override
 	@Transactional
@@ -156,8 +117,44 @@ public class PersonServiceImpl implements PersonService, CommandLineRunner {
 
 	}
 
-	
-	
-	
+	@Override
+	@Transactional(readOnly = true)
+	public Iterable<PersonDto> findEmployeeBySalary(int min, int max) {
+		return personRepository.findBySalaryBetween(min, max).map(p -> modelMapper.map(p, EmployeeDto.class))
+				.collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Iterable<PersonDto> getChildren() {
+		return personRepository.findChildrenBy().map(c -> modelMapper.map(c, ChildDto.class))
+				.collect(Collectors.toList());
+	}
+
+	private Class<? extends Person> getModelClass(PersonDto personDto) {
+		String modelClassName = personDto.getClass().getSimpleName();
+		modelClassName = modelClassName.substring(0, modelClassName.length() - 3);
+		try {
+			@SuppressWarnings("unchecked")
+			Class<? extends Person> clazz = (Class<? extends Person>) Class.forName(MODEL_PACKAGE + modelClassName);
+			return clazz;
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+			throw new UnknownPersonTypeException();
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private Class<? extends PersonDto> getDtoClass(Person person) {
+		String dtoClassName = person.getClass().getSimpleName();
+		dtoClassName = dtoClassName + DTO_SUFFIX;
+		try {
+			Class<? extends PersonDto> clazz = (Class<? extends PersonDto>) Class.forName(DTO_PACKAGE + dtoClassName);
+			return clazz;
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+			throw new UnknownPersonTypeException();
+		}
+	}
 
 }

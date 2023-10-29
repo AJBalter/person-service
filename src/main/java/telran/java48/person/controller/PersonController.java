@@ -66,11 +66,11 @@ public class PersonController {
 	}
 	@GetMapping("/children")
 	Iterable<PersonDto> findAllChildren(){
-		return personService.findAllChildren();
+		return personService.getChildren();
 	}
-	@GetMapping("/salary/{minSalary}/{maxSalary}")
-	Iterable<PersonDto> findEmployeesBySalary(@PathVariable Integer minSalary, @PathVariable Integer maxSalary){
-		return personService.findEmployeesBySalary(minSalary, maxSalary);
+	@GetMapping("/salary/{min}/{max}")
+	Iterable<PersonDto> findEmployeeBySalary(@PathVariable Integer min, @PathVariable Integer max){
+		return personService.findEmployeeBySalary(min, max);
 	}
 
 }
